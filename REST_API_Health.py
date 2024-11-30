@@ -76,40 +76,49 @@ def get_workouts():
         workouts = Workout.query.all()
     return jsonify(workouts_schema.dump(workouts)), 200
 
-# 운동 주간 요약
 @app.route("/workouts/summary/weekly", methods=["GET"])
 def weekly_summary():
     start_date = request.args.get('start_date')
     if not start_date:
         return jsonify({"error": "start_date is required"}), 400
     try:
+        # 문자열을 datetime 객체로 변환
         start = datetime.strptime(start_date, "%Y-%m-%d")
         end = start + timedelta(days=6)
-        workouts = Workout.query.filter(Workout.date.between(start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))).all()
+
+        # DB에서 주간 데이터를 가져오기
+        workouts = Workout.query.filter(Workout.date.between(
+            start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")
+        )).all()
         total_sets = sum(w.sets for w in workouts)
         total_reps = sum(w.reps for w in workouts)
         unique_exercises = len(set(w.name for w in workouts))
+
         return jsonify({
             "total_sets": total_sets,
             "total_reps": total_reps,
             "unique_exercises": unique_exercises,
-            "start_date": start_date.strftime("%Y-%m-%d"),
+            "start_date": start.strftime("%Y-%m-%d"),
             "end_date": end.strftime("%Y-%m-%d")
         }), 200
-    except ValueError:
-        return jsonify({"error": "Invalid start_date format"}), 400
+    except ValueError as e:
+        return jsonify({"error": "Invalid start_date format. Expected format: YYYY-MM-DD"}), 400
 
-# 운동 월간 요약
+
 @app.route("/workouts/summary/monthly", methods=["GET"])
 def monthly_summary():
     month = request.args.get('month')
     if not month:
         return jsonify({"error": "month is required"}), 400
     try:
+        # YYYY-MM 형식 확인
+        datetime.strptime(month, "%Y-%m")  # 유효성 검사
         workouts = Workout.query.filter(Workout.date.like(f"{month}-%")).all()
+
         total_sets = sum(w.sets for w in workouts)
         total_reps = sum(w.reps for w in workouts)
         unique_exercises = len(set(w.name for w in workouts))
+
         return jsonify({
             "total_sets": total_sets,
             "total_reps": total_reps,
@@ -117,7 +126,8 @@ def monthly_summary():
             "month": month
         }), 200
     except ValueError:
-        return jsonify({"error": "Invalid month format"}), 400
+        return jsonify({"error": "Invalid month format. Expected format: YYYY-MM"}), 400
+
 
 # 식단 추가
 @app.route("/diets", methods=["POST"])
